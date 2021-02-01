@@ -1,0 +1,5 @@
+{
+    "tag_latest": "1.0.0",
+    "publish_pypi": "true",
+    "release_exe": "true"
+}

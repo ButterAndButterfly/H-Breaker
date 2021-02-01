@@ -1,0 +1,93 @@
+# This workflow will build a package using Maven and then publish it to GitHub packages when a release is created
+# For more information see: https://github.com/actions/setup-java#apache-maven-with-a-settings-path
+
+name: Release
+
+on:
+  push:
+    paths:
+    # Trigger only when src/** changes
+      - ".github/release.json"
+
+jobs:
+  build:
+
+    runs-on: windows-latest
+       
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Read tag_latest
+      id: tag_latest
+      uses:  ashley-taylor/read-json-property-action@v1.0
+      with:
+        path: ./.github/release.json
+        property: tag_latest
+    
+    - name: Read publish
+      id: publish_pypi
+      uses:  ashley-taylor/read-json-property-action@v1.0
+      with:
+        path: ./.github/release.json
+        property: publish_pypi
+    
+    - name: Read release_exe
+      id: release_exe
+      uses:  ashley-taylor/read-json-property-action@v1.0
+      with:
+        path: ./.github/release.json
+        property: release_exe
+    
+    
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.8
+        
+    - name: Publish to pypi.org
+      if: ${{ steps.publish_pypi.outputs.value == 'true' }}
+      env:
+        TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
+        TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+      run: |
+        python -m pip install --user --upgrade setuptools wheel twine
+        python setup.py sdist bdist_wheel
+        python -m twine upload dist/* --repository-url
+ 
+    - name: Generate h-breaker.exe
+      if: ${{ steps.release_exe.outputs.value == 'true' }}
+      run: |
+        {Remove-Item -Path build - recurse}
+        {Remove-Item -Path dist - recurse}
+        python -m pip install pyinstaller
+        pyinstaller -F "head_breaker/main.py" -i "icon.ico" -n "h-breaker"
+        python zip.py
+    
+    - name: Create Release
+      if: ${{ steps.release_exe.outputs.value == 'true' }}
+      id: create_release
+      uses: actions/create-release@latest
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: V${{steps.tag_latest.outputs.value}}
+        release_name: h-breaker - v${{steps.tag_latest.outputs.value}}
+        body: |
+          h-breaker - v${{steps.tag_latest.outputs.value}}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      if: ${{ steps.release_exe.outputs.value == 'true' }}
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} 
+        asset_path: dist/h-breaker.zip
+        asset_name: h-breaker.v${{steps.tag_latest.outputs.value}}.zip
+        asset_content_type: application/zip
+    
+
+
