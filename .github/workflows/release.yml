@@ -52,7 +52,7 @@ jobs:
       run: |
         python -m pip install --user --upgrade setuptools wheel twine
         python setup.py sdist bdist_wheel
-        python -m twine upload dist/* --repository-url
+        python -m twine upload dist/*
  
     - name: Generate h-breaker.exe
       if: ${{ steps.release_exe.outputs.value == 'true' }}
